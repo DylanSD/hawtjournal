@@ -614,7 +614,7 @@ public class Journal implements Iterable<Location> {
                 batch.appendBatch(write);
                 currentUserLocation = goToNextLocation(currentUserLocation, Location.USER_RECORD_TYPE, false);
             }
-            batch.perform(raf, null, true);
+            batch.perform(raf, null, null, true);
         } finally {
             if (raf != null) {
                 raf.close();
@@ -710,7 +710,7 @@ public class Journal implements Iterable<Location> {
             writes.offer(writeRecord);
         }
 
-        void perform(RandomAccessFile file, ReplicationTarget replicator, boolean checksum) throws IOException {
+        void perform(RandomAccessFile file, JournalListener listener, ReplicationTarget replicator, boolean checksum) throws IOException {
             DataByteArrayOutputStream buffer = new DataByteArrayOutputStream(size);
             WriteCommand control = writes.peek();
             boolean forceToDisk = false;
@@ -757,8 +757,19 @@ public class Journal implements Iterable<Location> {
                 IOHelper.sync(file.getFD());
             }
 
-            if (replicator != null) {
-                replicator.replicate(control.location, sequence, forceToDisk);
+            try {
+                if (listener != null) {
+                    listener.synced(writes.toArray(new WriteCommand[writes.size()]));
+                }
+            } catch (Throwable ex) {
+                warn("Cannot notify listeners!", ex);
+            }
+            try {
+                if (replicator != null) {
+                    replicator.replicate(control.location, sequence, forceToDisk);
+                }
+            } catch (Throwable ex) {
+                warn("Cannot replicate!", ex);
             }
         }
 

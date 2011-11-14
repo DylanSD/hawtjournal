@@ -278,23 +278,16 @@ class DataFileAppender {
                     }
 
                     // perform batch:
-                    wb.perform(lastAppendRaf, journal.getReplicationTarget(), journal.isChecksum());
+                    wb.perform(lastAppendRaf, journal.getListener(), journal.getReplicationTarget(), journal.isChecksum());
 
                     // Adjust journal length:
                     journal.addToTotalLength(wb.getSize());
 
-                    // Now that the data is on disk, remove the writes from the in-flight cache and notify listeners.
+                    // Now that the data is on disk, remove the writes from the in-flight cache.
                     Collection<WriteCommand> commands = wb.getWrites();
                     for (WriteCommand current : commands) {
                         if (!current.isSync()) {
                             journal.getInflightWrites().remove(current.getLocation());
-                        }
-                    }
-                    if (journal.getListener() != null) {
-                        try {
-                            journal.getListener().synced(commands.toArray(new WriteCommand[commands.size()]));
-                        } catch (Throwable ex) {
-                            warn(ex, ex.getMessage());
                         }
                     }
 
