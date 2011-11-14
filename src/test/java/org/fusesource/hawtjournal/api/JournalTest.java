@@ -62,7 +62,33 @@ public class JournalTest {
     }
 
     @Test
-    public void testLogWritingAndReplaying() throws Exception {
+    public void testSyncLogWritingAndReplaying() throws Exception {
+        int iterations = 10;
+        for (int i = 0; i < iterations; i++) {
+            journal.write(ByteBuffer.wrap(new String("DATA" + i).getBytes("UTF-8")), true);
+        }
+        int i = 0;
+        for (Location location : journal) {
+            ByteBuffer buffer = journal.read(location);
+            assertEquals("DATA" + i++, new String(buffer.array(), "UTF-8"));
+        }
+    }
+    
+    @Test
+    public void testAsyncLogWritingAndReplaying() throws Exception {
+        int iterations = 10;
+        for (int i = 0; i < iterations; i++) {
+            journal.write(ByteBuffer.wrap(new String("DATA" + i).getBytes("UTF-8")), false);
+        }
+        int i = 0;
+        for (Location location : journal) {
+            ByteBuffer buffer = journal.read(location);
+            assertEquals("DATA" + i++, new String(buffer.array(), "UTF-8"));
+        }
+    }
+    
+    @Test
+    public void testMixedSyncAsyncLogWritingAndReplaying() throws Exception {
         int iterations = 10;
         for (int i = 0; i < iterations; i++) {
             boolean sync = i % 2 == 0 ? true : false;
@@ -78,18 +104,27 @@ public class JournalTest {
     @Test
     public void testLogRecovery() throws Exception {
         int iterations = 10;
+        //
         for (int i = 0; i < iterations; i++) {
             boolean sync = i % 2 == 0 ? true : false;
             journal.write(ByteBuffer.wrap(new String("DATA" + i).getBytes("UTF-8")), sync);
         }
+        //
         journal.close();
         //
         journal.open();
-        int i = 0;
+        //
+        for (int i = iterations; i < iterations * 2; i++) {
+            boolean sync = i % 2 == 0 ? true : false;
+            journal.write(ByteBuffer.wrap(new String("DATA" + i).getBytes("UTF-8")), sync);
+        }
+        //
+        int index = 0;
         for (Location location : journal) {
             ByteBuffer buffer = journal.read(location);
-            assertEquals("DATA" + i++, new String(buffer.array(), "UTF-8"));
+            assertEquals("DATA" + index++, new String(buffer.array(), "UTF-8"));
         }
+        assertEquals(iterations * 2, index);
     }
 
     @Test
@@ -166,7 +201,7 @@ public class JournalTest {
         ReplicationTarget replicator = new ReplicationTarget() {
 
             public void replicate(Location startLocation, Buffer data, boolean sync) {
-                if (startLocation.getDataFileId() == 1 && startLocation.getOffset() == 0) {
+                if (startLocation.getDataFileId() == 1 && startLocation.getPointer() == 0) {
                     writeLatch.countDown();
                 }
             }
@@ -204,8 +239,8 @@ public class JournalTest {
     @Test
     public void testConcurrentWriteAndRead() throws Exception {
         final AtomicInteger counter = new AtomicInteger(0);
-        ExecutorService executor = Executors.newFixedThreadPool(25);
-        int iterations = 1000;
+        ExecutorService executor = Executors.newFixedThreadPool(50);
+        int iterations = 10000;
         //
         for (int i = 0; i < iterations; i++) {
             final int index = i;
@@ -234,9 +269,9 @@ public class JournalTest {
         assertTrue(executor.awaitTermination(1, TimeUnit.MINUTES));
         assertEquals(iterations, counter.get());
     }
-    
+
     @Test
-    public void testConcurrentWriteReadAndCompact() throws Exception {
+    public void testCompactionDuringConcurrentWriteAndRead() throws Exception {
         final AtomicInteger counter = new AtomicInteger(0);
         ExecutorService executor = Executors.newFixedThreadPool(25);
         int iterations = 1000;
@@ -252,6 +287,9 @@ public class JournalTest {
                         Location location = journal.write(ByteBuffer.wrap(write.getBytes("UTF-8")), sync);
                         String read = new String(journal.read(location).array(), "UTF-8");
                         if (read.equals("DATA" + index)) {
+                            if (index % 4 == 0) {
+                                journal.delete(location);
+                            }
                             counter.incrementAndGet();
                         } else {
                             System.out.println(write);
@@ -278,6 +316,11 @@ public class JournalTest {
         executor.shutdown();
         assertTrue(executor.awaitTermination(1, TimeUnit.MINUTES));
         assertEquals(iterations, counter.get());
+        int locations = 0;
+        for (Location current : journal) {
+            locations++;
+        }
+        assertEquals(iterations - (iterations / 4), locations);
     }
 
     protected void configure(Journal journal) {
