@@ -43,9 +43,13 @@ Eventually delete some record:
 
     journal.delete(location);
 
-Cleanup dead logs:
+Optionally do a manual sync:
 
-    journal.cleanup();
+    journal.sync();
+
+Compact logs:
+
+    journal.compact();
 
 And close it:
 

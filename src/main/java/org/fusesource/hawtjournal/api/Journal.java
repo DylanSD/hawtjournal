@@ -205,6 +205,19 @@ public class Journal implements Iterable<Location> {
             }
         }
     }
+    
+    /**
+     * Sync asynchronously written records on disk.
+     * 
+     * @throws IOException 
+     */
+    public void sync() throws IOException {
+        try {
+            appender.sync().get();
+        } catch (Exception ex) {
+            throw new IllegalStateException(ex.getMessage(), ex);
+        }
+    }
 
     /**
      * Read the record stored at the given {@link Location}, either by syncing with the disk state (if true) or by taking advantage
@@ -493,14 +506,6 @@ public class Journal implements Iterable<Location> {
 
     ConcurrentNavigableMap<Location, WriteCommand> getInflightWrites() {
         return inflightWrites;
-    }
-
-    void sync() throws IOException {
-        try {
-            appender.sync().get();
-        } catch (Exception ex) {
-            throw new IllegalStateException(ex.getMessage(), ex);
-        }
     }
 
     DataFile getCurrentWriteFile() throws IOException {
