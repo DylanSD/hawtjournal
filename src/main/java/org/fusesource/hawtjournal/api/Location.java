@@ -19,6 +19,7 @@ package org.fusesource.hawtjournal.api;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -40,6 +41,7 @@ public final class Location implements Comparable<Location> {
     private volatile int pointer = NOT_SET;
     private volatile int size = NOT_SET;
     private volatile byte type = NO_RECORD_TYPE;
+    private volatile ByteBuffer data;
     private CountDownLatch latch;
 
     public Location() {
@@ -84,6 +86,10 @@ public final class Location implements Comparable<Location> {
     public int getDataFileId() {
         return dataFileId;
     }
+    
+    public ByteBuffer getData() {
+        return data;
+    }
 
     void setSize(int size) {
         this.size = size;
@@ -111,6 +117,10 @@ public final class Location implements Comparable<Location> {
 
     void setLatch(CountDownLatch latch) {
         this.latch = latch;
+    }
+
+    void setData(ByteBuffer data) {
+        this.data = data;
     }
 
     public String toString() {

@@ -44,7 +44,7 @@ import org.fusesource.hawtjournal.util.IOHelper;
 import static org.fusesource.hawtjournal.util.LogHelper.*;
 
 /**
- * Journal implementation based on append-only rotating logs and checksummed records, with fully concurrent writes and reads, 
+ * Journal implementation based on append-only rotating logs and checksummed records, with concurrent writes and reads, 
  * dynamic batching and logs compaction.<br/>
  * Journal records can be written, read and deleted by providing a {@link Location} object.<br/>
  * The whole journal can be replayed by simply iterating through it in a foreach block.<br/>
@@ -148,11 +148,7 @@ public class Journal implements Iterable<Location> {
                     // Ignore file that do not match the pattern.
                 }
             }
-            try {
-                lastAppendLocation = recoveryCheck();
-            } catch (IOException e) {
-                warn(e, "Recovery check failed!");
-            }
+            lastAppendLocation = recoveryCheck();
         } else {
             lastAppendLocation = new Location(1, PRE_START_POINTER);
         }
@@ -219,8 +215,7 @@ public class Journal implements Iterable<Location> {
      * @throws IllegalStateException
      */
     public ByteBuffer read(Location location) throws IOException, IllegalStateException {
-        Buffer buffer = accessor.readLocation(location);
-        return buffer.toByteBuffer();
+        return accessor.readLocation(location).toByteBuffer();
     }
 
     /**
@@ -537,30 +532,29 @@ public class Journal implements Iterable<Location> {
     }
 
     private Location goToFirstLocation(DataFile file, byte type, boolean goToNextFile) throws IOException, IllegalStateException {
-        Location start = new Location(file.getDataFileId(), 0);
-        boolean hasLocationDetails = accessor.fillLocationDetails(start);
-        if (hasLocationDetails && start.getType() == type) {
+        Location start = accessor.readLocationDetails(file.getDataFileId(), 0);
+        if (start != null && start.getType() == type) {
             return start;
-        } else {
+        } else if (start != null) {
             return goToNextLocation(start, type, goToNextFile);
+        } else {
+            return null;
         }
     }
 
     private Location goToNextLocation(Location start, byte type, boolean goToNextFile) throws IOException {
-        Location candidate = new Location(start);
+        DataFile currentDataFile = getDataFile(start);
+        Location currentLocation = new Location(start);
         Location result = null;
         while (result == null) {
-            boolean hasLocationDetails = accessor.fillNextLocationDetails(candidate);
-            if (hasLocationDetails && candidate.getType() == type) {
-                result = candidate;
-            } else if (hasLocationDetails && candidate.getType() != type) {
-                continue;
+            currentLocation = accessor.readNextLocationDetails(currentLocation, type);
+            if (currentLocation != null) {
+                result = currentLocation;
             } else {
                 if (goToNextFile) {
-                    DataFile nextDataFile = getNextDataFile(getDataFile(candidate));
-                    if (nextDataFile != null) {
-                        candidate.setDataFileId(nextDataFile.getDataFileId());
-                        candidate.setPointer(0);
+                    currentDataFile = currentDataFile.getNext();
+                    if (currentDataFile != null) {
+                        currentLocation = new Location(currentDataFile.getDataFileId(), 0);
                     } else {
                         break;
                     }
@@ -586,10 +580,6 @@ public class Journal implements Iterable<Location> {
             throw new IOException("Could not locate data file " + getFile(item.getDataFileId()));
         }
         return dataFile;
-    }
-
-    private DataFile getNextDataFile(DataFile dataFile) {
-        return dataFile.getNext();
     }
 
     private void removeDataFile(DataFile dataFile) throws IOException {
@@ -701,7 +691,7 @@ public class Journal implements Iterable<Location> {
         }
 
         WriteCommand prepareBatch() throws IOException {
-            WriteCommand controlRecord = new WriteCommand(new Location(), null, false);
+            WriteCommand controlRecord = new WriteCommand(new Location(), new Buffer(0), false);
             controlRecord.location.setType(Location.BATCH_CONTROL_RECORD_TYPE);
             controlRecord.location.setSize(Journal.BATCH_CONTROL_RECORD_SIZE);
             controlRecord.location.setDataFileId(dataFile.getDataFileId());
@@ -741,7 +731,7 @@ public class Journal implements Iterable<Location> {
                 buffer.writeInt(current.location.getPointer());
                 buffer.writeInt(current.location.getSize());
                 buffer.writeByte(current.location.getType());
-                buffer.write(current.data.getData(), current.data.getOffset(), current.data.getLength());
+                buffer.write(current.getData());
             }
 
             // Now we can fill in the batch control record properly.
