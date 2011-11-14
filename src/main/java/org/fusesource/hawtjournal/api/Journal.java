@@ -207,15 +207,17 @@ public class Journal implements Iterable<Location> {
     }
 
     /**
-     * Read the record stored at the given {@link Location}.
+     * Read the record stored at the given {@link Location}, either by syncing with the disk state (if true) or by taking advantage
+     * of speculative disk reads (if false); the latter is faster, while the former is slower but will suddenly detect deleted records.
      *
      * @param location
+     * @param sync
      * @return
      * @throws IOException
      * @throws IllegalStateException
      */
-    public ByteBuffer read(Location location) throws IOException, IllegalStateException {
-        return accessor.readLocation(location).toByteBuffer();
+    public ByteBuffer read(Location location, boolean sync) throws IOException, IllegalStateException {
+        return accessor.readLocation(location, sync).toByteBuffer();
     }
 
     /**
@@ -607,7 +609,7 @@ public class Journal implements Iterable<Location> {
             WriteBatch batch = new WriteBatch(tmpFile, 0);
             batch.prepareBatch();
             while (currentUserLocation != null) {
-                Buffer data = accessor.readLocation(currentUserLocation);
+                Buffer data = accessor.readLocation(currentUserLocation, false);
                 WriteCommand write = new WriteCommand(currentUserLocation, data, true);
                 batch.appendBatch(write);
                 currentUserLocation = goToNextLocation(currentUserLocation, Location.USER_RECORD_TYPE, false);
@@ -628,7 +630,7 @@ public class Journal implements Iterable<Location> {
     private Location recoveryCheck() throws IOException {
         Location currentUserBatch = goToFirstLocation(dataFiles.firstEntry().getValue(), Location.BATCH_CONTROL_RECORD_TYPE, false);
         while (true) {
-            ByteBuffer buffer = accessor.readLocation(currentUserBatch).toByteBuffer();
+            ByteBuffer buffer = accessor.readLocation(currentUserBatch, false).toByteBuffer();
             if (isChecksum()) {
                 long expectedChecksum = buffer.getLong();
                 byte data[] = new byte[buffer.remaining()];

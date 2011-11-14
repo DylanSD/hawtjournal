@@ -61,6 +61,14 @@ public class JournalTest {
         dir.delete();
     }
 
+    @Test(expected = IOException.class)
+    public void testAsyncAndThenSyncLogRead() throws Exception {
+        Location data = journal.write(ByteBuffer.wrap(new String("DATA").getBytes("UTF-8")), true);
+        journal.delete(data);
+        assertEquals("DATA", journal.read(data, false));
+        journal.read(data, true);
+    }
+
     @Test
     public void testSyncLogWritingAndReplaying() throws Exception {
         int iterations = 10;
@@ -69,11 +77,11 @@ public class JournalTest {
         }
         int i = 0;
         for (Location location : journal) {
-            ByteBuffer buffer = journal.read(location);
+            ByteBuffer buffer = journal.read(location, false);
             assertEquals("DATA" + i++, new String(buffer.array(), "UTF-8"));
         }
     }
-    
+
     @Test
     public void testAsyncLogWritingAndReplaying() throws Exception {
         int iterations = 10;
@@ -82,11 +90,11 @@ public class JournalTest {
         }
         int i = 0;
         for (Location location : journal) {
-            ByteBuffer buffer = journal.read(location);
+            ByteBuffer buffer = journal.read(location, false);
             assertEquals("DATA" + i++, new String(buffer.array(), "UTF-8"));
         }
     }
-    
+
     @Test
     public void testMixedSyncAsyncLogWritingAndReplaying() throws Exception {
         int iterations = 10;
@@ -96,7 +104,7 @@ public class JournalTest {
         }
         int i = 0;
         for (Location location : journal) {
-            ByteBuffer buffer = journal.read(location);
+            ByteBuffer buffer = journal.read(location, false);
             assertEquals("DATA" + i++, new String(buffer.array(), "UTF-8"));
         }
     }
@@ -121,7 +129,7 @@ public class JournalTest {
         //
         int index = 0;
         for (Location location : journal) {
-            ByteBuffer buffer = journal.read(location);
+            ByteBuffer buffer = journal.read(location, false);
             assertEquals("DATA" + index++, new String(buffer.array(), "UTF-8"));
         }
         assertEquals(iterations * 2, index);
@@ -136,7 +144,7 @@ public class JournalTest {
         }
         int i = 0;
         for (Location location : journal) {
-            ByteBuffer buffer = journal.read(location);
+            ByteBuffer buffer = journal.read(location, false);
             assertEquals("DATA" + i++, new String(buffer.array(), "UTF-8"));
         }
     }
@@ -160,7 +168,7 @@ public class JournalTest {
         //
         int i = iterations / 2;
         for (Location location : journal) {
-            ByteBuffer buffer = journal.read(location);
+            ByteBuffer buffer = journal.read(location, false);
             assertEquals("DATA" + i++, new String(buffer.array(), "UTF-8"));
         }
     }
@@ -169,7 +177,7 @@ public class JournalTest {
     public void testCannotReadDeletedLocation() throws Exception {
         Location location = journal.write(ByteBuffer.wrap("DATA".getBytes("UTF-8")), false);
         journal.delete(location);
-        journal.read(location);
+        journal.read(location, false);
         fail("Should have raised IOException!");
     }
 
@@ -239,8 +247,8 @@ public class JournalTest {
     @Test
     public void testConcurrentWriteAndRead() throws Exception {
         final AtomicInteger counter = new AtomicInteger(0);
-        ExecutorService executor = Executors.newFixedThreadPool(50);
-        int iterations = 10000;
+        ExecutorService executor = Executors.newFixedThreadPool(25);
+        int iterations = 1000;
         //
         for (int i = 0; i < iterations; i++) {
             final int index = i;
@@ -251,7 +259,7 @@ public class JournalTest {
                         boolean sync = index % 2 == 0 ? true : false;
                         String write = new String("DATA" + index);
                         Location location = journal.write(ByteBuffer.wrap(write.getBytes("UTF-8")), sync);
-                        String read = new String(journal.read(location).array(), "UTF-8");
+                        String read = new String(journal.read(location, false).array(), "UTF-8");
                         if (read.equals("DATA" + index)) {
                             counter.incrementAndGet();
                         } else {
@@ -285,7 +293,7 @@ public class JournalTest {
                         boolean sync = index % 2 == 0 ? true : false;
                         String write = new String("DATA" + index);
                         Location location = journal.write(ByteBuffer.wrap(write.getBytes("UTF-8")), sync);
-                        String read = new String(journal.read(location).array(), "UTF-8");
+                        String read = new String(journal.read(location, false).array(), "UTF-8");
                         if (read.equals("DATA" + index)) {
                             if (index % 4 == 0) {
                                 journal.delete(location);

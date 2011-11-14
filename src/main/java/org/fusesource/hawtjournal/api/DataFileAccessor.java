@@ -81,8 +81,8 @@ class DataFileAccessor {
         }
     }
 
-    Buffer readLocation(Location location) throws IOException {
-        if (location.getData() != null) {
+    Buffer readLocation(Location location, boolean sync) throws IOException {
+        if (location.getData() != null && !sync) {
             return new Buffer(location.getData());
         } else {
             Location read = readLocationDetails(location.getDataFileId(), location.getPointer());

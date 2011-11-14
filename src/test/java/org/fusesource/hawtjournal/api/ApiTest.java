@@ -52,7 +52,7 @@ public class ApiTest {
         // Replay and read the journal:
         int i = 0;
         for (Location location : journal) {
-            ByteBuffer record = journal.read(location);
+            ByteBuffer record = journal.read(location, false);
             assertEquals("DATA" + i++, new String(record.array(), "UTF-8"));
         }
 
