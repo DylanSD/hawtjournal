@@ -29,7 +29,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import org.fusesource.hawtbuf.Buffer;
 import static org.fusesource.hawtjournal.util.LogHelper.*;
 
 /**
@@ -63,8 +62,8 @@ class DataFileAppender {
         this.journal = journal;
     }
 
-    Location storeItem(Buffer data, byte type, boolean sync) throws IOException {
-        int size = Journal.HEADER_SIZE + data.getLength();
+    Location storeItem(byte[] data, byte type, boolean sync) throws IOException {
+        int size = Journal.HEADER_SIZE + data.length;
 
         Location location = new Location();
         location.setSize(size);

@@ -228,8 +228,8 @@ public class Journal implements Iterable<Location> {
      * @throws IOException
      * @throws IllegalStateException
      */
-    public ByteBuffer read(Location location) throws IOException, IllegalStateException {
-        return accessor.readLocation(location, false).toByteBuffer();
+    public byte[] read(Location location) throws IOException, IllegalStateException {
+        return accessor.readLocation(location, false);
     }
 
     /**
@@ -242,8 +242,8 @@ public class Journal implements Iterable<Location> {
      * @throws IOException
      * @throws IllegalStateException
      */
-    public ByteBuffer read(Location location, boolean sync) throws IOException, IllegalStateException {
-        return accessor.readLocation(location, sync).toByteBuffer();
+    public byte[] read(Location location, boolean sync) throws IOException, IllegalStateException {
+        return accessor.readLocation(location, sync);
     }
 
     /**
@@ -256,8 +256,8 @@ public class Journal implements Iterable<Location> {
      * @throws IOException
      * @throws IllegalStateException
      */
-    public Location write(ByteBuffer data, boolean sync) throws IOException, IllegalStateException {
-        Location loc = appender.storeItem(new Buffer(data), Location.USER_RECORD_TYPE, sync);
+    public Location write(byte[] data, boolean sync) throws IOException, IllegalStateException {
+        Location loc = appender.storeItem(data, Location.USER_RECORD_TYPE, sync);
         return loc;
     }
 
@@ -645,7 +645,7 @@ public class Journal implements Iterable<Location> {
             WriteBatch batch = new WriteBatch(tmpFile, 0);
             batch.prepareBatch();
             while (currentUserLocation != null) {
-                Buffer data = accessor.readLocation(currentUserLocation, false);
+                byte[] data = accessor.readLocation(currentUserLocation, false);
                 WriteCommand write = new WriteCommand(currentUserLocation, data, true);
                 batch.appendBatch(write);
                 currentUserLocation = goToNextLocation(currentUserLocation, Location.USER_RECORD_TYPE, false);
@@ -666,7 +666,7 @@ public class Journal implements Iterable<Location> {
     private Location recoveryCheck() throws IOException {
         Location currentUserBatch = goToFirstLocation(dataFiles.firstEntry().getValue(), Location.BATCH_CONTROL_RECORD_TYPE, false);
         while (true) {
-            ByteBuffer buffer = accessor.readLocation(currentUserBatch, false).toByteBuffer();
+            ByteBuffer buffer = ByteBuffer.wrap(accessor.readLocation(currentUserBatch, false));
             if (isChecksum()) {
                 long expectedChecksum = buffer.getLong();
                 byte data[] = new byte[buffer.remaining()];
@@ -698,6 +698,8 @@ public class Journal implements Iterable<Location> {
 
     static class WriteBatch {
 
+        private static byte[] EMPTY_BUFFER = new byte[0];
+        //
         private final DataFile dataFile;
         private final Queue<WriteCommand> writes = new ConcurrentLinkedQueue<WriteCommand>();
         private final CountDownLatch latch = new CountDownLatch(1);
@@ -729,7 +731,7 @@ public class Journal implements Iterable<Location> {
         }
 
         WriteCommand prepareBatch() throws IOException {
-            WriteCommand controlRecord = new WriteCommand(new Location(), new Buffer(0), false);
+            WriteCommand controlRecord = new WriteCommand(new Location(), EMPTY_BUFFER, false);
             controlRecord.location.setType(Location.BATCH_CONTROL_RECORD_TYPE);
             controlRecord.location.setSize(Journal.BATCH_CONTROL_RECORD_SIZE);
             controlRecord.location.setDataFileId(dataFile.getDataFileId());
@@ -837,9 +839,9 @@ public class Journal implements Iterable<Location> {
 
         private final Location location;
         private final boolean sync;
-        private volatile Buffer data;
+        private volatile byte[] data;
 
-        WriteCommand(Location location, Buffer data, boolean sync) {
+        WriteCommand(Location location, byte[] data, boolean sync) {
             this.location = location;
             this.data = data;
             this.sync = sync;
@@ -849,7 +851,7 @@ public class Journal implements Iterable<Location> {
             return location;
         }
 
-        Buffer getData() {
+        byte[] getData() {
             return data;
         }
 

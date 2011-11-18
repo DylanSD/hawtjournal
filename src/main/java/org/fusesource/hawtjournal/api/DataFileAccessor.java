@@ -20,7 +20,6 @@ import org.fusesource.hawtjournal.api.Journal.WriteCommand;
 import java.util.concurrent.locks.ReentrantLock;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -32,7 +31,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.fusesource.hawtbuf.Buffer;
 import org.fusesource.hawtjournal.util.IOHelper;
 import static org.fusesource.hawtjournal.util.LogHelper.*;
 
@@ -81,13 +79,13 @@ class DataFileAccessor {
         }
     }
 
-    Buffer readLocation(Location location, boolean sync) throws IOException {
+    byte[] readLocation(Location location, boolean sync) throws IOException {
         if (location.getData() != null && !sync) {
-            return new Buffer(location.getData());
+            return location.getData();
         } else {
             Location read = readLocationDetails(location.getDataFileId(), location.getPointer());
             if (read != null && !read.isDeletedRecord()) {
-                return new Buffer(read.getData());
+                return read.getData();
             } else {
                 throw new IOException("Invalid location: " + location);
             }
@@ -101,7 +99,7 @@ class DataFileAccessor {
             location.setPointer(asyncWrite.getLocation().getPointer());
             location.setSize(asyncWrite.getLocation().getSize());
             location.setType(asyncWrite.getLocation().getType());
-            location.setData(asyncWrite.getData().toByteBuffer());
+            location.setData(asyncWrite.getData());
             return location;
         } else {
             Location location = new Location(file, pointer);
@@ -145,7 +143,7 @@ class DataFileAccessor {
             asyncLocation.setPointer(asyncWrite.getLocation().getPointer());
             asyncLocation.setSize(asyncWrite.getLocation().getSize());
             asyncLocation.setType(asyncWrite.getLocation().getType());
-            asyncLocation.setData(asyncWrite.getData().toByteBuffer());
+            asyncLocation.setData(asyncWrite.getData());
             return asyncLocation;
         } else {
             // Else read from file:
@@ -220,7 +218,7 @@ class DataFileAccessor {
     void resume() {
         compactorMutex.unlock();
     }
-    
+
     private boolean seekToLocation(RandomAccessFile raf, Location destination) throws IOException {
         // First try the next file position:
         long position = raf.getFilePointer();
@@ -270,16 +268,16 @@ class DataFileAccessor {
         }
     }
 
-    private ByteBuffer readLocationData(Location location, RandomAccessFile raf) throws IOException {
+    private byte[] readLocationData(Location location, RandomAccessFile raf) throws IOException {
         if (location.isBatchControlRecord()) {
             int batchSize = raf.readInt();
             byte[] data = new byte[Journal.CHECKSUM_SIZE + batchSize];
             raf.readFully(data);
-            return ByteBuffer.wrap(data);
+            return data;
         } else {
             byte[] data = new byte[location.getSize() - Journal.HEADER_SIZE];
             raf.readFully(data);
-            return ByteBuffer.wrap(data);
+            return data;
         }
     }
 
