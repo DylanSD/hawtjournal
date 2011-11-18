@@ -218,6 +218,18 @@ public class Journal implements Iterable<Location> {
             throw new IllegalStateException(ex.getMessage(), ex);
         }
     }
+    
+    /**
+     * Read the record stored at the given {@link Location}, taking advantage of speculative disk reads.
+     *
+     * @param location
+     * @return
+     * @throws IOException
+     * @throws IllegalStateException
+     */
+    public ByteBuffer read(Location location) throws IOException, IllegalStateException {
+        return accessor.readLocation(location, false).toByteBuffer();
+    }
 
     /**
      * Read the record stored at the given {@link Location}, either by syncing with the disk state (if true) or by taking advantage
