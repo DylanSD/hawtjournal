@@ -70,7 +70,7 @@ class DataFileAppender {
         location.setSize(size);
         location.setType(type);
         WriteCommand write = new WriteCommand(location, data, sync);
-        location = enqueue(write);
+        location = enqueueBatch(write);
 
         if (sync) {
             try {
@@ -118,7 +118,7 @@ class DataFileAppender {
         }
     }
 
-    private Location enqueue(WriteCommand writeRecord) throws IOException {
+    private Location enqueueBatch(WriteCommand writeRecord) throws IOException {
         WriteBatch currentBatch = null;
         int spinnings = 0;
         int limit = SPIN_RETRIES;
@@ -130,7 +130,7 @@ class DataFileAppender {
                 throw new IOException(firstAsyncException.get());
             }
             try {
-                if (batching.compareAndSet(false, true) && !shutdown) {
+                if (!shutdown && batching.compareAndSet(false, true)) {
                     try {
                         if (nextWriteBatch == null) {
                             DataFile file = journal.getCurrentWriteFile();
@@ -164,13 +164,11 @@ class DataFileAppender {
                                 nextWriteBatch.appendBatch(writeRecord);
                                 journal.getInflightWrites().put(writeRecord.getLocation(), writeRecord);
                                 journal.setLastAppendLocation(writeRecord.getLocation());
-                                currentBatch = nextWriteBatch;
                                 break;
                             } else if (canBatch && writeRecord.isSync()) {
                                 nextWriteBatch.appendBatch(writeRecord);
                                 journal.setLastAppendLocation(writeRecord.getLocation());
                                 batchQueue.put(nextWriteBatch);
-                                currentBatch = nextWriteBatch;
                                 nextWriteBatch = null;
                                 break;
                             } else {
@@ -181,7 +179,7 @@ class DataFileAppender {
                     } finally {
                         batching.set(false);
                     }
-                } else {
+                } else if (!shutdown) {
                     // Spin waiting for new batch ...
                     if (spinnings <= limit) {
                         spinnings++;
@@ -259,13 +257,8 @@ class DataFileAppender {
      */
     private void processBatches() {
         try {
-            boolean last = false;
-            while (true) {
+            while (!shutdown || !batchQueue.isEmpty()) {
                 WriteBatch wb = batchQueue.take();
-
-                if (shutdown) {
-                    last = true;
-                }
 
                 if (!wb.isEmpty()) {
                     boolean newOrRotated = lastAppendDataFile != wb.getDataFile();
@@ -293,10 +286,6 @@ class DataFileAppender {
 
                     // Signal any waiting threads that the write is on disk.
                     wb.getLatch().countDown();
-                }
-
-                if (last) {
-                    break;
                 }
             }
         } catch (Exception e) {
