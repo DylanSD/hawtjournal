@@ -271,7 +271,7 @@ class DataFileAppender {
                     }
 
                     // perform batch:
-                    wb.perform(lastAppendRaf, journal.getListener(), journal.getReplicationTarget(), journal.isChecksum());
+                    wb.perform(lastAppendRaf, journal.getListener(), journal.getReplicationTarget(), journal.isChecksum(), journal.isPhysicalSync());
 
                     // Adjust journal length:
                     journal.addToTotalLength(wb.getSize());

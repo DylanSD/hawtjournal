@@ -208,7 +208,7 @@ public class JournalTest {
         final CountDownLatch writeLatch = new CountDownLatch(1);
         ReplicationTarget replicator = new ReplicationTarget() {
 
-            public void replicate(Location startLocation, Buffer data, boolean sync) {
+            public void replicate(Location startLocation, Buffer data) {
                 if (startLocation.getDataFileId() == 1 && startLocation.getPointer() == 0) {
                     writeLatch.countDown();
                 }

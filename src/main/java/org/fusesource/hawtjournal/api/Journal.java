@@ -87,6 +87,7 @@ public class Journal implements Iterable<Location> {
     private int maxWriteBatchSize = DEFAULT_MAX_BATCH_SIZE;
     private int maxFileLength = DEFAULT_MAX_FILE_LENGTH;
     private long disposeInterval = DEFAULT_DISPOSE_INTERVAL;
+    private boolean physicalSync = false;
     private boolean checksum = true;
     //
     private DataFileAppender appender;
@@ -205,7 +206,7 @@ public class Journal implements Iterable<Location> {
             }
         }
     }
-    
+
     /**
      * Sync asynchronously written records on disk.
      * 
@@ -218,7 +219,7 @@ public class Journal implements Iterable<Location> {
             throw new IllegalStateException(ex.getMessage(), ex);
         }
     }
-    
+
     /**
      * Read the record stored at the given {@link Location}, taking advantage of speculative disk reads.
      *
@@ -461,6 +462,24 @@ public class Journal implements Iterable<Location> {
     }
 
     /**
+     * Return true if every disk write is followed by a physical disk sync, synchronizing file descriptor properties and flushing hardware buffers,
+     * false otherwise.
+     * @return 
+     */
+    public boolean isPhysicalSync() {
+        return physicalSync;
+    }
+
+    /**
+     * Set true if every disk write must be followed by a physical disk sync, synchronizing file descriptor properties and flushing hardware buffers,
+     * false otherwise.
+     * @return 
+     */
+    public void setPhysicalSync(boolean physicalSync) {
+        this.physicalSync = physicalSync;
+    }
+
+    /**
      * Get the max size in bytes of the write batch: must always be equal or less than the max file length.
      * @return
      */
@@ -631,7 +650,7 @@ public class Journal implements Iterable<Location> {
                 batch.appendBatch(write);
                 currentUserLocation = goToNextLocation(currentUserLocation, Location.USER_RECORD_TYPE, false);
             }
-            batch.perform(raf, null, null, true);
+            batch.perform(raf, null, null, true, true);
         } finally {
             if (raf != null) {
                 raf.close();
@@ -727,10 +746,9 @@ public class Journal implements Iterable<Location> {
             writes.offer(writeRecord);
         }
 
-        void perform(RandomAccessFile file, JournalListener listener, ReplicationTarget replicator, boolean checksum) throws IOException {
+        void perform(RandomAccessFile file, JournalListener listener, ReplicationTarget replicator, boolean checksum, boolean physicalSync) throws IOException {
             DataByteArrayOutputStream buffer = new DataByteArrayOutputStream(size);
             WriteCommand control = writes.peek();
-            boolean forceToDisk = false;
 
             // Write an empty batch control record.
             buffer.reset();
@@ -746,7 +764,6 @@ public class Journal implements Iterable<Location> {
             // Process others:
             while (commands.hasNext()) {
                 WriteCommand current = commands.next();
-                forceToDisk |= current.sync;
                 buffer.writeInt(current.location.getPointer());
                 buffer.writeInt(current.location.getSize());
                 buffer.writeByte(current.location.getType());
@@ -770,7 +787,7 @@ public class Journal implements Iterable<Location> {
             file.seek(offset);
             file.write(sequence.getData(), sequence.getOffset(), sequence.getLength());
 
-            if (forceToDisk) {
+            if (physicalSync) {
                 IOHelper.sync(file.getFD());
             }
 
@@ -783,7 +800,7 @@ public class Journal implements Iterable<Location> {
             }
             try {
                 if (replicator != null) {
-                    replicator.replicate(control.location, sequence, forceToDisk);
+                    replicator.replicate(control.location, sequence);
                 }
             } catch (Throwable ex) {
                 warn("Cannot replicate!", ex);
