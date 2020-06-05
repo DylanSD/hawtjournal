@@ -61,7 +61,6 @@ class DataFileAccessor {
         threadLock.lock();
         try {
             journal.sync();
-            //
             RandomAccessFile raf = getOrCreateRaf(Thread.currentThread(), location.getDataFileId());
             if (seekToLocation(raf, location)) {
                 raf.skipBytes(Journal.RECORD_POINTER_SIZE + Journal.RECORD_LENGTH_SIZE);
