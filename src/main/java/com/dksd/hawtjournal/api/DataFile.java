@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.fusesource.hawtjournal.api;
+package com.dksd.hawtjournal.api;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.fusesource.hawtjournal.util.IOHelper;
+
+import com.dksd.hawtjournal.util.IOHelper;
 
 /**
  * @author <a href="http://hiramchirino.com">Hiram Chirino</a>

@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.fusesource.hawtjournal.api;
+package com.dksd.hawtjournal.api;
 
-import org.fusesource.hawtjournal.api.Journal.WriteCommand;
+import com.dksd.hawtjournal.util.IOHelper;
+import com.dksd.hawtjournal.util.LogHelper;
+import com.dksd.hawtjournal.api.Journal.WriteCommand;
 import java.util.concurrent.locks.ReentrantLock;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -31,8 +33,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.fusesource.hawtjournal.util.IOHelper;
-import static org.fusesource.hawtjournal.util.LogHelper.*;
 
 /**
  * File reader/updater to randomly access data files, supporting concurrent thread-isolated reads and writes.
@@ -194,7 +194,7 @@ class DataFileAccessor {
                         removeRaf(threadRafs.getKey(), raf.getKey());
                         return;
                     } catch (IOException ex) {
-                        warn(ex, ex.getMessage());
+                        LogHelper.warn(ex, ex.getMessage());
                     } finally {
                         lock.unlock();
                     }
@@ -328,7 +328,7 @@ class DataFileAccessor {
                                 deadThreads.add(threadRafs.getKey());
                             }
                         } catch (IOException ex) {
-                            warn(ex, ex.getMessage());
+                            LogHelper.warn(ex, ex.getMessage());
                         } finally {
                             lock.unlock();
                         }
