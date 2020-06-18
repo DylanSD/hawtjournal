@@ -576,9 +576,8 @@ public class Journal implements Iterable<Location> {
             return start;
         } else if (start != null) {
             return goToNextLocation(start, type, goToNextFile);
-        } else {
-            return null;
         }
+        return null;
     }
 
     public Location goToNextLocation(Location start, byte type, boolean goToNextFile) throws IOException {
