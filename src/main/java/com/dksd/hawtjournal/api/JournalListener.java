@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.fusesource.hawtjournal.api;
+package com.dksd.hawtjournal.api;
 
 /**
  * Listener interface, notified at write syncing.

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.fusesource.hawtjournal.api;
+package com.dksd.hawtjournal.api;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -38,10 +38,11 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.Adler32;
 import java.util.zip.Checksum;
+
+import com.dksd.hawtjournal.util.IOHelper;
+import com.dksd.hawtjournal.util.LogHelper;
 import org.fusesource.hawtbuf.Buffer;
 import org.fusesource.hawtbuf.DataByteArrayOutputStream;
-import org.fusesource.hawtjournal.util.IOHelper;
-import static org.fusesource.hawtjournal.util.LogHelper.*;
 
 /**
  * Journal implementation based on append-only rotating logs and checksummed records, with concurrent writes and reads, 
@@ -155,7 +156,7 @@ public class Journal implements Iterable<Location> {
         }
 
         long end = System.currentTimeMillis();
-        trace("Startup took: %d ms", (end - start));
+        LogHelper.trace("Startup took: %d ms", (end - start));
     }
 
     /**
@@ -575,12 +576,11 @@ public class Journal implements Iterable<Location> {
             return start;
         } else if (start != null) {
             return goToNextLocation(start, type, goToNextFile);
-        } else {
-            return null;
         }
+        return null;
     }
 
-    private Location goToNextLocation(Location start, byte type, boolean goToNextFile) throws IOException {
+    public Location goToNextLocation(Location start, byte type, boolean goToNextFile) throws IOException {
         DataFile currentDataFile = getDataFile(start);
         Location currentLocation = new Location(start);
         Location result = null;
@@ -614,7 +614,7 @@ public class Journal implements Iterable<Location> {
         Integer key = Integer.valueOf(item.getDataFileId());
         DataFile dataFile = dataFiles.get(key);
         if (dataFile == null) {
-            error("Looking for key %d but not found among data files %s", key, dataFiles);
+            LogHelper.error("Looking for key %d but not found among data files %s", key, dataFiles);
             throw new IOException("Could not locate data file " + getFile(item.getDataFileId()));
         }
         return dataFile;
@@ -625,12 +625,12 @@ public class Journal implements Iterable<Location> {
         totalLength.addAndGet(-dataFile.getLength());
         if (archiveFiles) {
             dataFile.move(getDirectoryArchive());
-            debug("moved data file %s to %s", dataFile, getDirectoryArchive());
+            LogHelper.debug("moved data file %s to %s", dataFile, getDirectoryArchive());
         } else {
             if (dataFile.delete()) {
-                debug("Discarded data file %s", dataFile);
+                LogHelper.debug("Discarded data file %s", dataFile);
             } else {
-                warn("Failed to discard data file %s", dataFile.getFile());
+                LogHelper.warn("Failed to discard data file %s", dataFile.getFile());
             }
         }
     }
@@ -798,14 +798,14 @@ public class Journal implements Iterable<Location> {
                     listener.synced(writes.toArray(new WriteCommand[writes.size()]));
                 }
             } catch (Throwable ex) {
-                warn("Cannot notify listeners!", ex);
+                LogHelper.warn("Cannot notify listeners!", ex);
             }
             try {
                 if (replicator != null) {
                     replicator.replicate(control.location, sequence);
                 }
             } catch (Throwable ex) {
-                warn("Cannot replicate!", ex);
+                LogHelper.warn("Cannot replicate!", ex);
             }
         }
 

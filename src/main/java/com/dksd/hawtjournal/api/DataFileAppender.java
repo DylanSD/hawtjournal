@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.fusesource.hawtjournal.api;
+package com.dksd.hawtjournal.api;
 
-import org.fusesource.hawtjournal.api.Journal.WriteBatch;
-import org.fusesource.hawtjournal.api.Journal.WriteCommand;
-import org.fusesource.hawtjournal.api.Journal.WriteFuture;
+import com.dksd.hawtjournal.util.LogHelper;
+import com.dksd.hawtjournal.api.Journal.WriteBatch;
+import com.dksd.hawtjournal.api.Journal.WriteCommand;
+import com.dksd.hawtjournal.api.Journal.WriteFuture;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.RandomAccessFile;
@@ -29,7 +30,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import static org.fusesource.hawtjournal.util.LogHelper.*;
 
 /**
  * File writer to do batch appends to a data file, based on a non-blocking, mostly lock-free, algorithm to maximize throughput on concurrent writes.
@@ -204,11 +204,11 @@ class DataFileAppender {
                     try {
                         processBatches();
                     } catch (Throwable ex) {
-                        warn(ex, ex.getMessage());
+                        LogHelper.warn(ex, ex.getMessage());
                         try {
                             close();
                         } catch (Exception ignored) {
-                            warn(ignored, ignored.getMessage());
+                            LogHelper.warn(ignored, ignored.getMessage());
                         }
                     }
                 }

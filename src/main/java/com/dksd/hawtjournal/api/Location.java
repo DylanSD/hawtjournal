@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.fusesource.hawtjournal.api;
+package com.dksd.hawtjournal.api;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -30,7 +30,7 @@ import java.util.concurrent.CountDownLatch;
 public final class Location implements Comparable<Location> {
 
     static final byte NO_RECORD_TYPE = 0;
-    static final byte USER_RECORD_TYPE = 1;
+    public static final byte USER_RECORD_TYPE = 1;
     static final byte BATCH_CONTROL_RECORD_TYPE = 2;
     static final byte DELETED_RECORD_TYPE = 3;
     //
