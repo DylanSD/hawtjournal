@@ -265,7 +265,7 @@ public class Journal implements Iterable<Location> {
     /**
      * Delete the record at the given {@link Location}.<br/>
      * Deletes cause first a batch sync and always are logical: records will be actually deleted at log cleanup time.
-     * @param location
+     * @param location location
      * @throws IOException
      * @throws IllegalStateException
      */
